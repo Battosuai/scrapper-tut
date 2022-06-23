@@ -31,19 +31,42 @@ const getCharacterPageNames = async () => {
 
 const getCharacterInfo = async (characterName: string) => {
   const url = `https://throneofglass.fandom.com/wiki/${characterName}`;
-  console.log(url);
   const { data } = await axios.get(url);
   const $ = load(data);
-  let name = $('h2[data-source="name"').text();
-  console.log(name);
-  return characterName;
+  let name = $('h2[data-source="name"]').text();
+  const species = $(
+    'div[data-source="species"] > div.pi-data-value.pi-font'
+  ).text();
+  const image = $(".image.image-thumbnail > img").attr("src");
+  if (!name) {
+    name = characterName.replace("_", " ");
+  }
+  const characterInfo = {
+    name,
+    species,
+    image,
+  };
+  return characterInfo;
 };
 
 const loadCharacters = async () => {
   const characterNames = await getCharacterPageNames();
-  for (let i = 0; i < characterNames.length; i++) {
-    const characterInfo = await getCharacterInfo(characterNames[i]);
-  }
+  const characterInfoPromises = characterNames.map((characterName) =>
+    getCharacterInfo(characterName)
+  );
+  const characters = await Promise.all(characterInfoPromises);
+  const values = characters.map((character, index) => [
+    index + 1,
+    character.name,
+    character.species,
+    character.image,
+  ]);
+  console.log(characters);
+  const sql = "Insert into Characters (id, name, species, image) values ?";
+  connection.query(sql, [values], (err) => {
+    if (err) console.log("error", err);
+    console.log("data saved in db");
+  });
 };
 
 loadCharacters();
